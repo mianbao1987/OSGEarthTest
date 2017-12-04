@@ -390,6 +390,7 @@ int main(int argc, char** argv)
 
 	// The MapNode will render the Map object in the scene graph.
 	//将MapNode添加到组节点中去
+
 	root->addChild(s_mapNode);
 
 	//下面是设置一个控件，grid的意思是用格网去布局里面的小控件
