@@ -13,7 +13,13 @@
 #include <osgEarthUtil/EarthManipulator>
 #include <osgEarthUtil/Controls>
 #include <osgEarthUtil/LatLongFormatter>
+#include <osgEarthDrivers/kml/KML>
+#include <osgEarthSymbology/TextSymbol>
+#include <osgEarthAnnotation/PlaceNode>
 #include <iomanip>
+#include <string>
+
+
 
 using namespace osgEarth;
 using namespace osgEarth::Util;
@@ -141,6 +147,27 @@ struct QueryElevationHandler : public osgGA::GUIEventHandler
 	osg::NodePath    _path;
 };
 
+void unicodeToUTF8(const std::wstring &src, std::string& result)
+{
+	int n = WideCharToMultiByte(CP_UTF8, 0, src.c_str(), -1, 0, 0, 0, 0);
+	result.resize(n);
+	::WideCharToMultiByte(CP_UTF8, 0, src.c_str(), -1, (char*)result.c_str(), result.length(), 0, 0);
+}
+
+void gb2312ToUnicode(const std::string& src, std::wstring& result)
+{
+	int n = MultiByteToWideChar(CP_ACP, 0, src.c_str(), -1, NULL, 0);
+	result.resize(n);
+	::MultiByteToWideChar(CP_ACP, 0, src.c_str(), -1, (LPWSTR)result.c_str(), result.length());
+}
+
+void gb2312ToUtf8(const std::string& src, std::string& result)
+{
+	std::wstring strWideChar;
+	gb2312ToUnicode(src, strWideChar);
+	unicodeToUTF8(strWideChar, result);
+}
+
 //main函数，
 int main(int argc, char** argv)
 {
@@ -156,6 +183,16 @@ int main(int argc, char** argv)
 		OE_WARN << "Unable to load earth file." << std::endl;
 		return -1;
 	}
+	
+
+/*
+	osgEarth::Style style;
+	osgEarth::Symbology::TextSymbol *textStyle = style.getOrCreateSymbol<osgEarth::Symbology::TextSymbol>();
+	textStyle->font() = "E:\\osg\\222\\simhei.ttc";
+	textStyle->size() = 30.0;
+	textStyle->encoding() = osgEarth::Symbology::TextSymbol::ENCODING_UTF8;
+*/
+
 
 	//建立一个组节点
 	osg::Group* root = new osg::Group();
@@ -200,10 +237,70 @@ int main(int argc, char** argv)
 	//将要显示的控件加入到root组节点中去
 	root->addChild(canvas);
 	canvas->addControl(grid);
+/*
+	std::string kmlFile("D:/SXEarth_Downloads/doc.kml");
+	osg::ref_ptr<osgDB::Options> options = new osgDB::Options();
+	options->setPluginData("osgEarth::MapNode", s_mapNode);
+	osg::Node* kml = osgDB::readNodeFile(kmlFile, options.get());
+	if (kml)
+		root->addChild(kml);*/
+	//osgEarth::URI url("F:\\doc.kml");
+	//osgEarth::URI url("E:\\osg\\osgearth\\src\\osgEarthDriversDisabled\\engine_seamless\\doc\\euler.kml");
+
+
+/*
+
+	osgEarth::URI url("E:\\osg\\222\\doc.kml");
+	MapNode* mapNode = static_cast<MapNode*>(s_mapNode);
+	osgEarth::Drivers::KMLOptions optionskml;
+	/ *osg::ref_ptr<osgEarth::Symbology::TextSymbol> textStyle = optionskml.defaultTextSymbol();
+	textStyle->font() = "C:/Windows/Fonts/simhei.ttf";
+	textStyle->size() = 30.0;
+	textStyle->encoding() = osgEarth::Symbology::TextSymbol::ENCODING_UTF8;* /
+	static osg::Node* kml = osgEarth::Drivers::KML::load(url, mapNode, optionskml);
+
+
+	if (kml)
+	{
+		root->addChild(kml);
+	}
+
+*/
+
+
+
+
+
+	MapNode* mapNode = static_cast<MapNode*>(s_mapNode);
+	Style pin;
+
+
+	pin.getOrCreate<osgEarth::Symbology::TextSymbol>()->font() = "simhei.ttf";//指定中文字体路径
+	pin.getOrCreate<osgEarth::Symbology::TextSymbol>()->encoding() = osgEarth::Symbology::TextSymbol::ENCODING_UTF8;
+	pin.getOrCreate<TextSymbol>()->alignment() = TextSymbol::ALIGN_CENTER_CENTER;
+	pin.getOrCreate<TextSymbol>()->fill()->color() = Color::Red;
+
+
+	std::string _strName;
+
+	_strName = "香港";
+
+	std::wstring _strWideName1;
+	std::string _strWideName;
+	osg::Group* labelGroup = new osg::Group();
+	//gb2312ToUnicode(_strName, _strWideName1);
+	gb2312ToUtf8(_strName, _strWideName);//这时的_strWideName就是宽字节用来显示就正确了
+	const SpatialReference* geoSRS = mapNode->getMapSRS()->getGeographicSRS();
+	labelGroup->addChild(new osgEarth::Annotation::PlaceNode(mapNode, GeoPoint(geoSRS, 117.5, 39.38), _strName, pin));
+	root->addChild(labelGroup);
+
+
+
 
 	//添加刚刚自定义的查询高程的事件回调
 	// An event handler that will respond to mouse clicks:
 	viewer.addEventHandler(new QueryElevationHandler());
+	//viewer.addEventHandler(new osgViewer::LODScaleHandler());
 	//添加状态显示，窗口改变等事件回调
 	// add some stock OSG handlers:
 	viewer.addEventHandler(new osgViewer::StatsHandler());
